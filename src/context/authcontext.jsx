@@ -1,9 +1,7 @@
 import { createContext, useState, useContext } from "react";
 import { useEffect } from "react";
 
-import { supabase } from "../supabase-client"
-
-
+import { supabase } from "../supabase-client";
 
 const AuthContext = createContext();
 
@@ -15,8 +13,6 @@ export const AuthContextProvider = ({ children }) => {
 
   // check if user is logged in or not and set the session data accordingly
   // use (get session method )
-  //(2) listen for chnaes in auth states
-  // (3) set the session data in the state from supabase auth state changes
 
   useEffect(() => {
     const getSession = async () => {
@@ -40,6 +36,24 @@ export const AuthContextProvider = ({ children }) => {
         setUser(session?.user ?? null);
       },
     );
+
+    //(2) listen for changes in auth states
+    useEffect(() => {
+      const { data: listener } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          setSession(session);
+          console.log("auth state changed:", event);
+          console.log("session:", session);
+        },
+      );
+
+     
+      return () => {
+        listener.subscription.unsubscribe();
+      };
+    }, []);
+
+    // (3) set the session data in the state from supabase auth state changes
 
     return () => {
       listener.subscription.unsubscribe();
