@@ -1,33 +1,31 @@
-import { createContext, useState, useContext } from "react";
-import { useEffect } from "react";
-
+import { createContext, useState, useContext, useEffect } from "react";
 import { supabase } from "../supabase-client";
 
 const AuthContext = createContext();
 
 export const AuthContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-
-  // session state to store the session data of the user
   const [session, setSession] = useState(null);
-
-  // check if user is logged in or not and set the session data accordingly
-  // use (get session method )
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 🔹 Get current session on load
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
-        console.log("Error getting session data:", error);
+        console.log("Error getting session:", error.message);
       } else {
         setSession(data.session);
-        setUser(data.session?.user || null);
+        setUser(data.session?.user ?? null);
       }
+
+      setLoading(false);
     };
 
     getSession();
 
+    // 🔹 Listen for auth changes
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth change:", event);
@@ -37,32 +35,50 @@ export const AuthContextProvider = ({ children }) => {
       },
     );
 
-    //(2) listen for changes in auth states
-    useEffect(() => {
-      const { data: listener } = supabase.auth.onAuthStateChange(
-        (event, session) => {
-          setSession(session);
-          console.log("auth state changed:", event);
-          console.log("session:", session);
-        },
-      );
-
-     
-      return () => {
-        listener.subscription.unsubscribe();
-      };
-    }, []);
-
-    // (3) set the session data in the state from supabase auth state changes
-
+    // 🔹 Cleanup
     return () => {
       listener.subscription.unsubscribe();
     };
-  });
+  }, []);
 
-  // auth system signin signup logout functions will go here
+  // 🔐 SIGN UP
+  const signUp = async (email, password) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+  };
+
+  // 🔑 LOGIN
+  const signIn = async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+  };
+
+  // 🚪 LOGOUT
+  const  signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.log(error.message);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser, session, setSession }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -70,8 +86,7 @@ export const AuthContextProvider = ({ children }) => {
 
 export default AuthContext;
 
-// use auth
-
+// 🔹 Custom hook
 export const useAuth = () => {
   return useContext(AuthContext);
 };
